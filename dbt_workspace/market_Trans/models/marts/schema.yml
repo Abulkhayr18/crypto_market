@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: crypto_top10
+    description: "Top 10 coins by market cap"
+    columns:
+      - name: name
+        tests:
+          - not_null
+      - name: price_usd
+        tests:
+          - not_null
+
+  - name: crypto_gainers
+    description: "All coins gaining in last 24 hours"
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+
+  - name: crypto_losers
+    description: "All coins losing in last 24 hours"
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+
+  - name: crypto_market_summary
+    description: "Aggregated market statistics"
+    columns:
+      - name: total_coins
+        tests:
+          - not_null
+
+  - name: crypto_bottom10
+    description: "10 worst performing coins by 24h change"
+    columns:
+      - name: symbol
+        tests:
+          - not_null

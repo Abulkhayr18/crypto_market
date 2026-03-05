@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: crypto_report
+    description: "Final report combining top10 with market summary"
+    columns:
+      - name: name
+        tests:
+          - not_null
+      - name: market_dominance_pct
+        tests:
+          - not_null
