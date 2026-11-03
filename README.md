@@ -193,35 +193,3 @@ dbt build        # run all models and tests
 |---|---|---|
 | `crypto_report` | View | Top 10 coins with market dominance % |
 
----
-
-## Known Limitations
-
-- **Databricks Free Edition** does not support automated scheduling — the pipeline is run manually. A future iteration will use **Apache Airflow** to schedule daily runs automatically.
-- Data is loaded via CSV upload due to connection timeout limitations on the free tier. A future iteration will use **Spark DataFrame direct write** for a fully automated load.
-- Some coins legitimately have a $0.00 price (very low value/inactive coins) — this is flagged as a warning in the custom test rather than an error.
-
----
-
-## Future Improvements
-
-- [ ] Add Apache Airflow for pipeline scheduling
-- [ ] Implement Spark direct write to replace CSV upload
-- [ ] Add historical data storage for trend analysis
-- [ ] Connect to Power BI or Databricks dashboard for visualisation
-- [ ] Containerise with Docker
-- [ ] Deploy on Azure with Databricks premium tier
-
----
-
-## Author
-
-**Abdussamad**
-- Built as part of a data engineering portfolio
-- Tools: Python · dbt · Databricks · SQL
-
----
-
-## License
-
-This project is for portfolio and educational purposes.
