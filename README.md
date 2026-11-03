@@ -1,195 +1,66 @@
-# crypt_market
-End-to-end crypto market data pipeline using Python, Databricks and dbt
-# Crypto Market Data Pipeline
+Crypto Market Data PipelineAn end-to-end cloud analytics engineering pipeline that extracts live cryptocurrency market data from the CoinMarketCap API, ingests and persists structured records into a Databricks SQL Warehouse (Delta Lake), and transforms raw payloads into production-grade analytics data marts using dbt Core with automated data quality assertions.System ArchitectureThe pipeline follows a Medallion Architecture (Bronze $\rightarrow$ Silver $\rightarrow$ Gold) pattern to ensure strict separation of concerns, data lineage, and high data quality across transformation layers:                  ┌───────────────────────────────────────────┐
+                  │            CoinMarketCap API              │
+                  └─────────────────────┬─────────────────────┘
+                                        │
+                                 [Python ETL Engine]
+                                        │
+                                        ▼
+                  ┌───────────────────────────────────────────┐
+                  │    Bronze Layer: Raw Landing & Staging    │
+                  │     (workspace.crypto_market.listings)    │
+                  └─────────────────────┬─────────────────────┘
+                                        │
+                                   [dbt Core]
+                                        │
+     ┌──────────────────────────────────┼──────────────────────────────────┐
+     ▼                                  ▼                                  ▼
+┌─────────────────────────┐  ┌─────────────────────────────┐  ┌──────────────────────────┐
+│  Silver Layer: Staging  │  │   Gold Layer: Data Marts    │  │  Gold Layer: Reporting   │
+│  (Ephemeral Models)     │  │   (Physical Tables)         │  │  (Analytical Views)      │
+├─────────────────────────┤  ├─────────────────────────────┤  ├──────────────────────────┤
+│ • stg_crypto            │  │ • crypto_top10              │  │ • crypto_report          │
+│                         │  │ • crypto_bottom10           │  │                          │
+│                         │  │ • crypto_gainers            │  │                          │
+│                         │  │ • crypto_losers             │  │                          │
+│                         │  │ • crypto_market_summary     │  │                          │
+└─────────────────────────┘  └─────────────────────────────┘  └──────────────────────────┘
 
-An end-to-end data engineering project that extracts live cryptocurrency data from the CoinMarketCap API, loads it into Databricks, and transforms it using dbt with full data quality testing.
-
----
-
-## Architecture
-
-```
-CoinMarketCap API
-       ↓
-   Python ETL
-  (pipeline.py)
-       ↓
-  CSV Export
-       ↓
-Databricks (SQL Warehouse)
-  workspace.crypto_market.listings
-       ↓
-     dbt
-  (market_Trans)
-       ↓
-  ┌────────────────────────────────┐
-  │  Staging (ephemeral)           │
-  │  └── stg_crypto                │
-  ├────────────────────────────────┤
-  │  Marts (tables)                │
-  │  ├── crypto_top10              │
-  │  ├── crypto_bottom10           │
-  │  ├── crypto_gainers            │
-  │  ├── crypto_losers             │
-  │  └── crypto_market_summary     │
-  ├────────────────────────────────┤
-  │  Reports (views)               │
-  │  └── crypto_report             │
-  └────────────────────────────────┘
-```
-
----
-
-## Tech Stack
-
-| Tool | Purpose |
-|---|---|
-| **Python** | Data extraction and transformation |
-| **CoinMarketCap API** | Live cryptocurrency data source |
-| **Pandas** | Data manipulation and CSV export |
-| **Databricks (Free Edition)** | Cloud data warehouse |
-| **dbt Core** | Data transformation and testing |
-| **dotenv** | Environment variable management |
-| **Git** | Version control |
-
----
-
-## Project Structure
-
-```
-port/
+Tech Stack & Engineering ConceptsCategoryTools / TechnologiesImplementation PurposeLanguage & ScriptingPython 3.11+, Pandas, RequestsIngestion script, REST API payload extraction, and data formattingData SourceCoinMarketCap Professional APILive market listings, market caps, pricing, and 24h volume telemetryData PlatformDatabricks SQL Warehouse / Delta LakeCloud Lakehouse engine, ACID transactions, and scalable data storageAnalytics Engineeringdbt Core (dbt-databricks)Modular SQL transformations, DAG execution, schema validation, and lineageData Quality & Auditdbt Schema Tests, Custom SQL AssertionsAutomated verification of zero-null constraints, unique keys, and price positivityEnvironment Controlpython-dotenv, GitSecure API key management, environment separation, and version controlProject Repository Structurecrypto_market_pipeline/
 ├── crypto_market/
-│   ├── pipeline.ipynb        # Main ETL notebook
-│   ├── ETL.py                # ETL script
-│   ├── crypto_data.csv       # Extracted data (generated)
-│   └── .env                  # Environment variables (not committed)
+│   ├── pipeline.ipynb        # Jupyter Notebook for interactive ETL execution
+│   ├── ETL.py                # Standalone Python extraction & loading script
+│   ├── crypto_data.csv       # Extracted snapshot data (git-ignored)
+│   └── .env                  # Environment variables & API credentials (git-ignored)
 │
 └── dbt_workspace/
     └── market_Trans/
         ├── models/
         │   ├── staging/
-        │   │   ├── stg_crypto.sql       # Ephemeral staging model
-        │   │   └── schema.yml           # Column tests
+        │   │   ├── stg_crypto.sql       # Ephemeral staging model (type casting & sanitization)
+        │   │   └── schema.yml           # Column assertions and schema tests
         │   ├── marts/
-        │   │   ├── crypto_top10.sql     # Top 10 by market cap
-        │   │   ├── crypto_bottom10.sql  # Worst 10 performers
-        │   │   ├── crypto_gainers.sql   # All gaining coins
-        │   │   ├── crypto_losers.sql    # All losing coins
-        │   │   ├── crypto_market_summary.sql  # Aggregated stats
-        │   │   └── schema.yml           # Model tests
+        │   │   ├── crypto_top10.sql     # Top 10 tokens by market capitalization
+        │   │   ├── crypto_bottom10.sql  # 10 worst performing tokens (24h change)
+        │   │   ├── crypto_gainers.sql   # Active tokens with positive 24h delta
+        │   │   ├── crypto_losers.sql    # Active tokens with negative 24h delta
+        │   │   ├── crypto_market_summary.sql  # Global aggregated market statistics
+        │   │   └── schema.yml           # Mart validation tests
         │   └── reports/
-        │       ├── crypto_report.sql    # Final combined report
-        │       └── schema.yml
+        │       ├── crypto_report.sql    # Gold view combining metrics for business dashboards
+        │       └── schema.yml           # Report schema metadata
         ├── tests/
-        │   └── assert_price_above_zero.sql  # Custom test
-        └── dbt_project.yml
-```
+        │   └── assert_price_above_zero.sql  # Custom singular SQL data quality test
+        ├── dbt_project.yml              # dbt project config & model materialization rules
+        └── packages.yml                 # External dbt package dependencies
 
----
+Data Quality & Assertion Testing FrameworkTo guarantee enterprise-level data reliability, the pipeline executes rigorous automated testing at both the schema level and custom singular test level prior to exposing data to gold marts:Test NameModel TargetTest TypeAssertion Descriptionuniquestg_crypto.idSchema TestValidates zero duplicate asset identifiers across ingestion payloads.not_nullstg_crypto.price_usdSchema TestEnforces strict presence of asset pricing data.not_nullstg_crypto.market_cap_usdSchema TestEnsures market cap metrics are non-null for capitalization ranking.accepted_valuesstg_crypto.price_trendSchema TestRestricts value domain to ['Gaining', 'Losing', 'Stable'].assert_price_above_zerostg_cryptoCustom Singular TestFails pipeline build if any record reflects a negative or zero USD price value ($P \le 0$).
 
-## Setup & Installation
+Analytics Marts Output Summary
 
-### Prerequisites
-- Python 3.11+
-- Databricks account (Free Edition or above)
-- CoinMarketCap API key ([Get one free here](https://coinmarketcap.com/api/))
+stg_crypto (Staging): Ephemeral cleaning layer standardizing timestamps, numeric types, and price trend indicators.
 
-### 1. Clone the repository
-```bash
-git clone https://github.com/yourusername/crypto-market-pipeline.git
-cd crypto-market-pipeline
-```
+crypto_top10 / crypto_bottom10 (Marts): Physical tables isolating extreme market performers by 24h delta and market capitalization.
 
-### 2. Create and activate virtual environment
-```bash
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# Mac/Linux
-source .venv/bin/activate
-```
+crypto_market_summary (Marts): Aggregated metrics tracking total market capitalization, global 24h volume, and asset distribution.
 
-### 3. Install dependencies
-```bash
-pip install requests pandas python-dotenv dbt-databricks
-```
-
-### 4. Configure environment variables
-Create a `.env` file in the `crypto_market` folder:
-```
-CMC_API_KEY=your_coinmarketcap_api_key
-DATABRICKS_HOST=your_databricks_host
-DATABRICKS_HTTP_PATH=your_http_path
-DATABRICKS_TOKEN=your_access_token
-```
-
-### 5. Configure dbt profile
-Create/update `~/.dbt/profiles.yml`:
-```yaml
-market_Trans:
-  target: dev
-  outputs:
-    dev:
-      type: databricks
-      host: "{{ env_var('DATABRICKS_HOST') }}"
-      http_path: "{{ env_var('DATABRICKS_HTTP_PATH') }}"
-      token: "{{ env_var('DATABRICKS_TOKEN') }}"
-      catalog: workspace
-      schema: crypto_market
-      threads: 1
-```
-
----
-
-## Running the Pipeline
-
-### Step 1: Extract and Load
-Run `pipeline.ipynb` in VS Code or Jupyter. This will:
-- Pull 5000 cryptocurrencies from CoinMarketCap API
-- Clean and transform the data
-- Export to `crypto_data.csv`
-
-Then upload `crypto_data.csv` to Databricks via **Data Ingestion → Upload files** into `workspace.crypto_market.listings`.
-
-### Step 2: Run dbt transformations
-```bash
-cd dbt_workspace/market_Trans
-dbt debug        # verify connection
-dbt build        # run all models and tests
-```
-
----
-
-## Data Quality Tests
-
-| Test | Model | Type | Description |
-|---|---|---|---|
-| `unique` | stg_crypto.id | Schema test | No duplicate coin IDs |
-| `not_null` | stg_crypto.price_usd | Schema test | No missing prices |
-| `not_null` | stg_crypto.market_cap_usd | Schema test | No missing market caps |
-| `accepted_values` | stg_crypto.price_trend | Schema test | Only gaining/losing/stable |
-| `assert_price_above_zero` | stg_crypto | Custom test | Flags zero price coins |
-
----
-
-## dbt Models
-
-### Staging
-| Model | Materialization | Description |
-|---|---|---|
-| `stg_crypto` | Ephemeral | Cleans raw listings, adds price_trend |
-
-### Marts
-| Model | Materialization | Description |
-|---|---|---|
-| `crypto_top10` | Table | Top 10 coins by market capitalisation |
-| `crypto_bottom10` | Table | 10 worst performing coins by 24h change |
-| `crypto_gainers` | Table | All coins with positive 24h change |
-| `crypto_losers` | Table | All coins with negative 24h change |
-| `crypto_market_summary` | Table | Aggregated market statistics |
-
-### Reports
-| Model | Materialization | Description |
-|---|---|---|
-| `crypto_report` | View | Top 10 coins with market dominance % |
-
+crypto_report (Reports View): Final consumption view calculating market dominance percentages ($Dominance = \frac{Cap_{Asset}}{Cap_{Total}} \times 100$) for reporting dashboards.
